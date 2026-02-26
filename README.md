@@ -189,6 +189,90 @@ docker compose up -d app
 ```
 
 
+## 🌍&nbsp; Vícejazyčná podpora (Multilang)
+
+Sulu podporuje více jazyků přes konfiguraci webspace. Níže je kompletní postup, který bylo nutné provést pro zprovoznění `cs` a `de` vedle výchozího `en`.
+
+### 1. Přidání localizací do webspace
+
+V souboru [config/webspaces/website.xml](config/webspaces/website.xml) přidej nové jazyky do bloku `<localizations>`:
+
+```xml
+<localizations>
+    <localization language="en" default="true"/>
+    <localization language="cs"/>
+    <localization language="de"/>
+</localizations>
+```
+
+> ⚠️ Pokud jazyk není v `<localizations>`, Sulu ho v portálu odmítne s chybou `PortalLocalizationNotFoundException`.
+
+### 2. Nastavení URL pro každý jazyk
+
+Pokud je portál nakonfigurován tak, že všechny jazyky sdílí stejnou URL (`{host}`), Sulu nedokáže rozlišit, kde hledat obsah. Každý jazyk musí mít **unikátní URL prefix**:
+
+```xml
+<portals>
+    <portal>
+        <environments>
+            <environment type="dev">
+                <urls>
+                    <url language="en">{host}/en</url>
+                    <url language="cs">{host}/cs</url>
+                    <url language="de">{host}/de</url>
+                </urls>
+            </environment>
+            <!-- stejné i pro prod, stage, test -->
+        </environments>
+    </portal>
+</portals>
+```
+
+Web je pak dostupný na:
+- [http://localhost:8000/en](http://localhost:8000/en)
+- [http://localhost:8000/cs](http://localhost:8000/cs)
+- [http://localhost:8000/de](http://localhost:8000/de)
+
+### 3. Přidání locales admin uživateli
+
+Po přidání nových jazyků nemá admin uživatel automaticky oprávnění pro ně. Je nutné přiřadit nové locale do databáze:
+
+```bash
+docker compose exec db mariadb -usulu -psulu sulu -e "
+UPDATE se_user_roles SET locale = '[\"en\",\"cs\",\"de\"]' WHERE idUsers = 1;
+INSERT INTO se_user_roles (locale, idUsers, idRoles)
+    SELECT '[\"en\",\"cs\",\"de\"]', 1, id FROM se_roles WHERE name = 'System Administrator';
+"
+```
+
+> **Proč?** Sulu ukládá v `se_user_roles.locale` JSON pole povolených locales pro každou roli uživatele. Výchozí `sulu:build dev` nastaví pouze `["en"]`. Bez `cs` a `de` vrací admin preview chybu `Permission "view" in localization "cs" ... not granted`.
+
+### 4. Vymazání cache
+
+Po každé změně webspace konfigurace nebo oprávnění je nutné vymazat cache:
+
+```bash
+docker compose exec app php -d memory_limit=512M bin/console cache:clear --env=dev
+```
+
+### 5. Vytvoření obsahu pro nové jazyky
+
+1. Přihlaš se na [http://localhost:8000/admin](http://localhost:8000/admin)
+2. Jdi na **Pages**
+3. Klikni na existující stránku (např. homepage v `en`)
+4. V pravém horním rohu přepni jazyk na `cs`
+5. Vyplň obsah v češtině a **publikuj**
+6. Opakuj pro `de`
+
+### Přehled souborů ke změně pro nový jazyk
+
+| Soubor | Co změnit |
+|--------|-----------|
+| [config/webspaces/website.xml](config/webspaces/website.xml) | Přidat `<localization language="xx"/>` a URL prefix do všech `<environment>` bloků |
+| Databáze `se_user_roles` | Přidat nový locale kód do JSON pole pro každého uživatele |
+
+---
+
 ## ❤️&nbsp; Community and Contributions
 
 The Sulu content management system is a **community-driven open source project** backed by various partner companies. We are committed to a fully transparent development process and **highly appreciate any contributions**. Whether you are helping us fixing bugs, proposing new feature, improving our documentation or spreading the word - **we would love to have you as part of the Sulu community**.
