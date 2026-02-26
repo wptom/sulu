@@ -35,15 +35,158 @@ The project template follows the best-practices of the [Symfony](https://symfony
 If you want to **extend your already set up Sulu project**, visit the [Sulu organization](https://github.com/sulu) on GitHub for a complete list of official Sulu bundles.
 
 
-## 🚀&nbsp; Installation and Documentation
+## 🚀&nbsp; Instalace a spuštění (Docker)
 
-Starting a new Sulu project with the [sulu/skeleton](https://github.com/sulu/skeleton) template is as easy as executing the following [composer](https://getcomposer.org/) command: 
+### Požadavky
+
+- [Docker](https://www.docker.com/) a [Docker Compose](https://docs.docker.com/compose/) (v2+)
+- Git
+
+### 1. Klonování projektu
 
 ```bash
-composer create-project sulu/skeleton my-project
+git clone <repository-url> my-project
+cd my-project
 ```
 
-Afterwards, visit the official [Sulu documentation](http://docs.sulu.io/en/latest/book/getting-started.html) to find out **how to initialize and configure your project** to your specific needs.
+### 2. Sestavení a spuštění kontejnerů
+
+```bash
+docker compose up -d --build
+```
+
+Spustí tyto služby:
+
+| Služba  | Popis                        | Port          |
+|---------|------------------------------|---------------|
+| `app`   | PHP 8.4-FPM (Symfony/Sulu)   | interní        |
+| `nginx` | Webserver                    | `localhost:8000` |
+| `db`    | MariaDB 10.11                | `localhost:13306` |
+| `admin` | Node.js – webpack watch      | interní        |
+
+### 3. Inicializace databáze a Sulu
+
+```bash
+docker compose exec app php bin/console sulu:build dev
+```
+
+Tento příkaz vytvoří databázové schéma, načte fixtures a vytvoří výchozího admin uživatele.
+
+### 4. Přihlášení do administrace
+
+Otevři [http://localhost:8000/admin](http://localhost:8000/admin) a přihlaš se:
+
+- **Uživatel:** `admin`
+- **Heslo:** `admin`
+
+### 5. Vytvoření obsahu (Homepage)
+
+1. V adminu jdi na **Pages**
+2. Vyber webspace **Website** a jazyk (**en**, **cs**, nebo **de**)
+3. Klikni na **+** a vytvoř stránku (typ `homepage`)
+4. Ulož a **publikuj**
+5. Pro další jazyky přepni jazyk v pravém horním rohu editoru
+
+Web je dostupný na:
+- [http://localhost:8000/en](http://localhost:8000/en)
+- [http://localhost:8000/cs](http://localhost:8000/cs)
+- [http://localhost:8000/de](http://localhost:8000/de)
+
+---
+
+## 🐳&nbsp; Docker příkazy
+
+### Základní operace
+
+```bash
+# Spustit všechny kontejnery na pozadí
+docker compose up -d
+
+# Sestavit image a spustit (po změně Dockerfile)
+docker compose up -d --build
+
+# Zastavit všechny kontejnery
+docker compose stop
+
+# Zastavit a smazat kontejnery (data v volumes zůstanou)
+docker compose down
+
+# Zastavit a smazat kontejnery včetně volumes (smaže databázi!)
+docker compose down -v
+```
+
+### Stav a logy
+
+```bash
+# Zobrazit stav kontejnerů
+docker compose ps
+
+# Logy všech služeb
+docker compose logs
+
+# Logy konkrétní služby (živě)
+docker compose logs -f app
+docker compose logs -f nginx
+docker compose logs -f admin
+```
+
+### Práce s aplikací
+
+```bash
+# Spustit příkaz v PHP kontejneru
+docker compose exec app php bin/console <příkaz>
+
+# Symfony konzole – vymazání cache
+docker compose exec app php -d memory_limit=512M bin/console cache:clear --env=dev
+
+# Composer install / update
+docker compose exec app composer install
+docker compose exec app composer update
+
+# Sulu build (inicializace/reset DB a fixtures)
+docker compose exec app php bin/console sulu:build dev
+
+# Sulu build pouze pro produkci (bez fixtures)
+docker compose exec app php bin/console sulu:build prod
+```
+
+### Databáze
+
+```bash
+# Připojení k databázi přes klienta v kontejneru
+docker compose exec db mariadb -usulu -psulu sulu
+
+# Záloha databáze
+docker compose exec db mariadb-dump -usulu -psulu sulu > backup.sql
+
+# Obnova databáze ze zálohy
+docker compose exec -T db mariadb -usulu -psulu sulu < backup.sql
+```
+
+### Assets (Node.js / Webpack)
+
+```bash
+# Jednorázový build assetů pro produkci
+docker compose run --rm admin sh -c "npm install && npm run build"
+
+# Spustit watch mode (automatická kompilace při změnách)
+docker compose up -d admin
+docker compose logs -f admin
+```
+
+### Restart a rebuild
+
+```bash
+# Restartovat jeden kontejner
+docker compose restart app
+
+# Znovu vytvořit kontejner (načte nové env proměnné)
+docker compose up -d --force-recreate app
+
+# Smazat a znovu sestavit image
+docker compose build --no-cache app
+docker compose up -d app
+```
 
 
 ## ❤️&nbsp; Community and Contributions
