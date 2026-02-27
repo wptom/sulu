@@ -7,6 +7,11 @@ services:
     container_name: sulu-app
     volumes:
       - .:/var/www/html
+      - vendor-data:/var/www/html/vendor
+    command: >
+      sh -c "composer install --no-interaction --prefer-dist --no-scripts
+      && mkdir -p var && chown -R www-data:www-data var
+      && php-fpm"
     depends_on:
       - db
     environment:
@@ -50,3 +55,4 @@ services:
 
 volumes:
   db-data:
+  vendor-data:

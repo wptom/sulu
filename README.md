@@ -273,6 +273,40 @@ docker compose exec app php -d memory_limit=512M bin/console cache:clear --env=d
 
 ---
 
+## 🔧&nbsp; Opravené problémy při nastavení
+
+Při prvním spuštění projektu bylo nutné opravit několik problémů:
+
+### 1. Dockerfile – chybějící adresář `var/`
+
+**Problém:** `RUN mkdir -p public/bundles && chown -R www-data:www-data var public/bundles` selhal, protože adresář `var/` neexistoval.
+
+**Oprava:** Příkaz byl změněn na `mkdir -p var public/bundles`.
+
+### 2. `compose.yaml` – volume mount přepsal `vendor/`
+
+**Problém:** Volume mount `. : /var/www/html` přepsal `vendor/` adresář, který byl nainstalován v Docker image při buildu. Protože `vendor/` je v `.gitignore`, na hostu neexistuje a Symfony hlásil „Dependencies are missing".
+
+**Oprava:** Přidán pojmenovaný volume `vendor-data:/var/www/html/vendor`, který uchovává vendor adresář odděleně od mount-u hostitelského systému.
+
+### 3. `compose.yaml` – OOM při `cache:clear` v composer post-install scriptu
+
+**Problém:** `composer install` jako startup command spouštěl post-install skripty (vč. `cache:clear`), které selhaly kvůli výchozímu limitu paměti PHP 128 MB – Sulu potřebuje více.
+
+**Oprava:** Přidán přepínač `--no-scripts` ke spouštěcímu příkazu `composer install`. Cache se sestaví při prvním request nebo při ručním `cache:clear -d memory_limit=512M`.
+
+### 4. `var/` – oprávnění v kontejneru
+
+**Problém:** Po namountování volume byl adresář `var/` vlastněn hostem, PHP-FPM (běžící jako `www-data`) do něj nemohl zapisovat.
+
+**Oprava:** Spouštěcí příkaz kontejneru přidán `mkdir -p var && chown -R www-data:www-data var`.
+
+### 5. Multilang – role „System Administrator" neexistuje
+
+**Poznámka:** SQL v sekci Vícejazyčná podpora obsahuje `INSERT ... WHERE name = 'System Administrator'`. Příkaz `sulu:build dev` vytvoří pouze roli **User** (ne System Administrator), takže INSERT nevloží žádný záznam. Toto není chyba – `UPDATE se_user_roles` pro roli User stačí.
+
+---
+
 ## ❤️&nbsp; Community and Contributions
 
 The Sulu content management system is a **community-driven open source project** backed by various partner companies. We are committed to a fully transparent development process and **highly appreciate any contributions**. Whether you are helping us fixing bugs, proposing new feature, improving our documentation or spreading the word - **we would love to have you as part of the Sulu community**.

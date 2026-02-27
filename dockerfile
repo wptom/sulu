@@ -25,7 +25,7 @@ RUN composer install --no-scripts --no-autoloader --prefer-dist --no-interaction
 COPY . .
 
 # oprávnění (důležité!)
-RUN mkdir -p public/bundles && chown -R www-data:www-data var public/bundles
+RUN mkdir -p var public/bundles && chown -R www-data:www-data var public/bundles
 # finální autoload + assetic (volitelně)
 RUN composer dump-autoload --optimize --classmap-authoritative \
     && php -d memory_limit=512M bin/console cache:clear --env=dev
